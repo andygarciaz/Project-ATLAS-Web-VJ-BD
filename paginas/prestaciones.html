@@ -101,7 +101,7 @@
                         <i class="bi bi-bell fs-5"></i>
                         <span class="notif-dot"></span>
                     </span>
-                    <a href="../scripts/login.js" class="text-secondary text-decoration-none small">Cerrar sesión</a>
+                    <a href="index.html" class="text-secondary text-decoration-none small">Cerrar sesión</a>
                 </div>
             </header>
 
@@ -237,10 +237,11 @@
                     </div>
 
                     <div class="tab-pane fade" id="tab-vacaciones">
+                        <div id="vacEstado" class="alert alert-info small" role="status">Consultando vacaciones en SQL Server...</div>
 
                         <div class="panel mb-3">
                             <div class="row g-3">
-                                <div class="col"><small class="text-secondary d-block">Días disponibles</small><span class="fw-semibold small" id="infoDisponibles">12</span></div>
+                                <div class="col"><small class="text-secondary d-block">Días disponibles</small><span class="fw-semibold small" id="infoDisponibles">—</span></div>
                                 <div class="col"><small class="text-secondary d-block">Compañía</small><span class="fw-semibold small">Desarrollo Eslabón</span></div>
                                 <div class="col"><small class="text-secondary d-block">Empleado</small><span class="fw-semibold small">Carlos Mendoza</span></div>
                                 <div class="col"><small class="text-secondary d-block">Antigüedad desde</small><span class="fw-semibold small">15 Mar 2021</span></div>
@@ -293,7 +294,7 @@
             <div class="modal-content p-2">
                 <div class="modal-body">
                     <h6 class="fw-bold mb-1">Solicitar vacaciones</h6>
-                    <small class="text-secondary d-block mb-3">Saldo disponible: <strong id="modalSaldo">12 días</strong></small>
+                    <small class="text-secondary d-block mb-3">Saldo disponible: <strong id="modalSaldo">Sin consultar</strong></small>
 
                     <div class="row g-2 mb-3">
                         <div class="col-6">
@@ -301,7 +302,7 @@
                             <input type="date" class="form-control" id="fechaInicio">
                         </div>
                         <div class="col-6">
-                            <label class="form-label small mb-1" for="fechaFin">Fecha de regreso</label>
+                            <label class="form-label small mb-1" for="fechaFin">Último día solicitado</label>
                             <input type="date" class="form-control" id="fechaFin">
                         </div>
                     </div>
@@ -329,5 +330,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../scripts/prestaciones.js"></script>
+    <script src="../scripts/prestaciones-extra-sql.js"></script>
+    <script src="../scripts/identidad-atlas.js"></script>
 </body>
 </html>

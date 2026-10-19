@@ -1,223 +1,140 @@
-const money = (n) => "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
-
-const servicios = [
-    "Consulta de medicina general", "Hospitalización", "Cirugía", "Maternidad",
-    "Medicamentos de cuadro básico", "Laboratorio y radiología", "Atención dental básica", "Pensiones y jubilaciones",
-];
-
-const movimientosAhorro = [
-    { mes: "Ago 2026", empleado: 2400, empresa: 2400, acumulado: 28800 },
-    { mes: "Jul 2026", empleado: 2400, empresa: 2400, acumulado: 26400 },
-    { mes: "Jun 2026", empleado: 2400, empresa: 2400, acumulado: 24000 },
-    { mes: "May 2026", empleado: 2400, empresa: 2400, acumulado: 21600 },
-];
-
-const saldoVacaciones = [
-    { anio: 2026, asignados: 18, disfrutados: 6 },
-    { anio: 2025, asignados: 16, disfrutados: 16 },
-    { anio: 2024, asignados: 14, disfrutados: 14 },
-    { anio: 2023, asignados: 12, disfrutados: 12 },
-];
-
-const historialVac = [
-    { folio: "VAC-2026-0041", inicio: "10 Jul 2026", fin: "21 Jul 2026", dias: 8, estado: "Autorizada" },
-    { folio: "VAC-2026-0022", inicio: "14 Mar 2026", fin: "19 Mar 2026", dias: 4, estado: "Autorizada" },
-    { folio: "VAC-2025-0098", inicio: "20 Dic 2025", fin: "02 Ene 2026", dias: 8, estado: "Autorizada" },
-];
-
-let diasDisponibles = 12;
-let folioSiguiente = 42;
-
-const serviciosLista = document.getElementById("serviciosLista");
-servicios.forEach((s) => {
-    const col = document.createElement("div");
-    col.className = "col-md-3 col-6";
-    col.innerHTML = `<div class="servicio-chip"><span class="dot dot-active"></span> ${s}</div>`;
-    serviciosLista.appendChild(col);
-});
-
-const ahorroBody = document.getElementById("ahorroBody");
-movimientosAhorro.forEach((m) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-        <td class="fw-semibold">${m.mes}</td>
-        <td class="numero">${money(m.empleado)}</td>
-        <td class="numero">${money(m.empresa)}</td>
-        <td class="numero texto-portal">${money(m.acumulado)}</td>
-    `;
-    ahorroBody.appendChild(row);
-});
-document.getElementById("saldoTotal").textContent = money(movimientosAhorro[0].acumulado);
-
-const saldoBody = document.getElementById("saldoBody");
-const historialVacaciones = document.getElementById("historialVacaciones");
-const infoDisponibles = document.getElementById("infoDisponibles");
-const modalSaldo = document.getElementById("modalSaldo");
-
-function renderSaldo() {
-    saldoBody.innerHTML = "";
-    saldoVacaciones.forEach((s) => {
-        const disponibles = s.asignados - s.disfrutados;
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td class="fw-semibold">${s.anio}</td>
-            <td>${s.asignados}</td>
-            <td>${s.disfrutados}</td>
-            <td class="fw-semibold ${disponibles > 0 ? "texto-portal" : "text-secondary"}">${disponibles}</td>
-        `;
-        saldoBody.appendChild(row);
-    });
-    diasDisponibles = saldoVacaciones[0].asignados - saldoVacaciones[0].disfrutados;
-    infoDisponibles.textContent = diasDisponibles;
-    modalSaldo.textContent = diasDisponibles + " días";
-}
-
-function renderHistorial() {
-    historialVacaciones.innerHTML = "";
-    historialVac.forEach((h) => {
-        const clase = h.estado === "Autorizada" ? "badge-autorizada" : "badge-pendiente";
-        const item = document.createElement("div");
-        item.className = "d-flex justify-content-between align-items-center px-4 py-3 border-top";
-        item.innerHTML = `
-            <div>
-                <div class="folio numero">${h.folio}</div>
-                <small>${h.inicio} — ${h.fin} · ${h.dias} días</small>
-            </div>
-            <span class="badge-status ${clase}">${h.estado}</span>
-        `;
-        historialVacaciones.appendChild(item);
-    });
-}
-
-renderSaldo();
-renderHistorial();
-
-const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-
-const fechaInicio = document.getElementById("fechaInicio");
-const fechaFin = document.getElementById("fechaFin");
-const diasSol = document.getElementById("diasSol");
-const diasFest = document.getElementById("diasFest");
-const diasVac = document.getElementById("diasVac");
-const mensajeError = document.getElementById("mensajeError");
-const btnEnviar = document.getElementById("btnEnviar");
-const comentarios = document.getElementById("comentarios");
-
-const parseFecha = (valor) => {
-    if (!valor) return null;
-    const [y, m, d] = valor.split("-").map(Number);
-    return new Date(y, m - 1, d);
-};
-
-const claveFecha = (d) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-const formatoFecha = (d) =>
-    `${String(d.getDate()).padStart(2, "0")} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
-
-const enesimoLunes = (anio, mes, n) => {
-    const primero = new Date(anio, mes, 1);
-    const desfase = (8 - primero.getDay()) % 7; 
-    return new Date(anio, mes, 1 + desfase + (n - 1) * 7);
-};
-
-const festivosDe = (anio) => new Set([
-    claveFecha(new Date(anio, 0, 1)),        
-    claveFecha(enesimoLunes(anio, 1, 1)),    
-    claveFecha(enesimoLunes(anio, 2, 3)),    
-    claveFecha(new Date(anio, 4, 1)),        
-    claveFecha(new Date(anio, 8, 16)),       
-    claveFecha(enesimoLunes(anio, 10, 3)),   
-    claveFecha(new Date(anio, 11, 25)),     
-]);
-
-function calcularDias(inicio, fin) {
-    let solicitados = 0;
-    let festivos = 0;
-    const cacheFestivos = {};
-
-    for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
-        const dia = d.getDay();
-        if (dia === 0 || dia === 6) continue; 
-        solicitados++;
-
-        const anio = d.getFullYear();
-        if (!cacheFestivos[anio]) cacheFestivos[anio] = festivosDe(anio);
-        if (cacheFestivos[anio].has(claveFecha(d))) festivos++;
+/* Prestaciones ATLAS: saldo e historial SIEMPRE desde API; no simular solicitudes. */
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const money = (n) => '$' + Number(n).toLocaleString('es-MX', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const servicios = [ 'Consulta de medicina general','Hospitalización','Cirugía','Maternidad','Medicamentos de cuadro básico','Laboratorio y radiología','Atención dental básica','Pensiones y jubilaciones' ];
+  const movimientosAhorro = [
+    {mes:'Ago 2026',empleado:2400,empresa:2400,acumulado:28800},
+    {mes:'Jul 2026',empleado:2400,empresa:2400,acumulado:26400},
+    {mes:'Jun 2026',empleado:2400,empresa:2400,acumulado:24000},
+    {mes:'May 2026',empleado:2400,empresa:2400,acumulado:21600},
+  ];
+  // IMSS y fondo de ahorro todavía son maquetas previas: NO forman parte de esta integración.
+  for (const servicio of servicios) {
+    if (!$('serviciosLista')) break;
+    const col=document.createElement('div'); col.className='col-md-3 col-6';
+    const chip=document.createElement('div');chip.className='servicio-chip';
+    const dot=document.createElement('span');dot.className='dot dot-active';chip.append(dot,document.createTextNode(' '+servicio));col.append(chip);$('serviciosLista').append(col);
+  }
+  for (const m of movimientosAhorro) {
+    if (!$('ahorroBody')) break;
+    const tr=document.createElement('tr');
+    for (const [text,cls] of [[m.mes,'fw-semibold'],[money(m.empleado),'numero'],[money(m.empresa),'numero'],[money(m.acumulado),'numero texto-portal']]) {
+      const td=document.createElement('td');td.className=cls;td.textContent=text;tr.append(td);
     }
-    return { solicitados, festivos, vacaciones: solicitados - festivos };
-}
+    $('ahorroBody').append(tr);
+  }
+  if ($('saldoTotal')) $('saldoTotal').textContent=money(movimientosAhorro[0].acumulado);
 
-function mostrarError(texto) {
-    mensajeError.textContent = texto;
-    mensajeError.classList.toggle("d-none", !texto);
-}
-
-function actualizarCalculo() {
-    const inicio = parseFecha(fechaInicio.value);
-    const fin = parseFecha(fechaFin.value);
-
-    diasSol.textContent = 0;
-    diasFest.textContent = 0;
-    diasVac.textContent = 0;
-    btnEnviar.disabled = true;
-    mostrarError("");
-
-    if (!inicio || !fin) return;
-
-    if (fin < inicio) {
-        mostrarError("La fecha de regreso no puede ser anterior a la de inicio.");
-        return;
+  const ANIO=2026; // Año con saldo piloto confirmado; cambiar a selección de año al ampliar el módulo.
+  let diasDisponibles=null;
+  let enviando=false;
+  const setText=(id,val)=>{if($(id)) $(id).textContent=String(val);};
+  function aviso(mensaje,tipo='info') {
+    const n=$('vacEstado');if(!n)return;
+    n.className=`alert alert-${tipo} small`;n.textContent=mensaje;
+  }
+  async function obtener(url,opciones={}) {
+    const resp=await fetch(url,{credentials:'same-origin',cache:'no-store',...opciones});
+    const data=await resp.json().catch(()=>({}));
+    if(!resp.ok || data.ok!==true) throw new Error(data.mensaje || `Error HTTP ${resp.status}`);
+    return data;
+  }
+  function fechaCorta(fecha) {
+    if(!fecha) return 'Sin fecha';
+    const match=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(fecha));
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : String(fecha);
+  }
+  function td(tr,valor,clase='') {const celda=document.createElement('td');celda.className=clase;celda.textContent=String(valor);tr.append(celda);}
+  function dibujarSaldo(saldo) {
+    const body=$('saldoBody');body.replaceChildren();
+    if(!saldo){const tr=document.createElement('tr');td(tr,'Sin saldo registrado en SQL Server');body.append(tr);diasDisponibles=null;setText('infoDisponibles','Sin datos');setText('modalSaldo','Sin datos');return;}
+    diasDisponibles=Number(saldo.disponibles);
+    const tr=document.createElement('tr');
+    td(tr,saldo.anio??ANIO,'fw-semibold');td(tr,saldo.asignados);td(tr,saldo.disfrutados);
+    td(tr,saldo.disponibles,'fw-semibold texto-portal');body.append(tr);
+    setText('infoDisponibles',diasDisponibles);setText('modalSaldo',`${diasDisponibles} días`);
+  }
+  function dibujarHistorial(solicitudes) {
+    const destino=$('historialVacaciones');destino.replaceChildren();
+    if(!solicitudes.length){const vacio=document.createElement('p');vacio.className='px-4 py-3 text-secondary small mb-0';vacio.textContent='Aún no tienes solicitudes registradas.';destino.append(vacio);return;}
+    for(const s of solicitudes){
+      const fila=document.createElement('div');fila.className='d-flex justify-content-between align-items-center px-4 py-3 border-top gap-2';
+      const principal=document.createElement('div');
+      const folio=document.createElement('div');folio.className='folio numero';folio.textContent=`Solicitud #${s.idSolicitud ?? '—'}`;
+      const fechas=document.createElement('small');fechas.textContent=`${fechaCorta(s.inicio)} — ${fechaCorta(s.fin)} · ${s.dias ?? 'Por calcular'} días provisionales`;
+      principal.append(folio,fechas);
+      const estado=document.createElement('span');
+      const estadoTxt=String(s.estado||'Sin estado');
+      estado.className='badge-status '+(/aprob|autoriza/i.test(estadoTxt)?'badge-autorizada':'badge-pendiente');
+      estado.textContent=estadoTxt;
+      fila.append(principal,estado);destino.append(fila);
     }
-
-    const r = calcularDias(inicio, fin);
-    diasSol.textContent = r.solicitados;
-    diasFest.textContent = r.festivos;
-    diasVac.textContent = r.vacaciones;
-
-    if (r.vacaciones === 0) {
-        mostrarError("El rango seleccionado no incluye días laborables a descontar.");
-        return;
-    }
-    if (r.vacaciones > diasDisponibles) {
-        mostrarError(`Solicitas ${r.vacaciones} días y solo tienes ${diasDisponibles} disponibles.`);
-        return;
-    }
-    btnEnviar.disabled = false;
-}
-
-fechaInicio.addEventListener("change", () => {
-
-    fechaFin.min = fechaInicio.value;
-    actualizarCalculo();
-});
-fechaFin.addEventListener("change", actualizarCalculo);
-
-document.getElementById("modalVacaciones").addEventListener("show.bs.modal", () => {
-    fechaInicio.value = "";
-    fechaFin.value = "";
-    fechaFin.min = "";
-    comentarios.value = "";
-    modalSaldo.textContent = diasDisponibles + " días";
-    actualizarCalculo();
-});
-
-btnEnviar.addEventListener("click", () => {
-    const inicio = parseFecha(fechaInicio.value);
-    const fin = parseFecha(fechaFin.value);
-    const r = calcularDias(inicio, fin);
-
-    historialVac.unshift({
-        folio: `VAC-${inicio.getFullYear()}-${String(folioSiguiente++).padStart(4, "0")}`,
-        inicio: formatoFecha(inicio),
-        fin: formatoFecha(fin),
-        dias: r.vacaciones,
-        estado: "Pendiente",
-    });
-    if (historialVac.length > 5) historialVac.pop();
-
-    renderHistorial();
-
-    bootstrap.Modal.getInstance(document.getElementById("modalVacaciones")).hide();
-});
-
+  }
+  async function actualizarVacaciones() {
+    aviso('Consultando datos reales de vacaciones...');
+    const [perfil,saldo,historial]=await Promise.all([
+      obtener('/api/perfil'),
+      obtener(`/api/vacaciones/saldo?anio=${ANIO}`),
+      obtener('/api/vacaciones/solicitudes'),
+    ]);
+    const p=perfil.perfil||{};
+    setText('vacCompania',p.compania??'Sin vinculación');
+    setText('vacEmpleado',[p.nombreRecurso,p.apellidoPaterno,p.apellidoMaterno].filter(Boolean).join(' ')||p.nombreCuenta||'Sin vinculación');
+    setText('vacIngreso',fechaCorta(p.fechaIngreso));
+    setText('vacSupervisor','Pendiente de vinculación');
+    dibujarSaldo(saldo.saldo);
+    dibujarHistorial(Array.isArray(historial.solicitudes)?historial.solicitudes:[]);
+    aviso('Información consultada desde SQL Server. Las solicitudes pendientes no descuentan saldo.','success');
+    recalcular();
+  }
+  function contarLaborables(inicio,fin) {
+    const start=new Date(`${inicio}T00:00:00Z`),end=new Date(`${fin}T00:00:00Z`);let cuenta=0;
+    for(let d=start;d<=end;d.setUTCDate(d.getUTCDate()+1)) if(![0,6].includes(d.getUTCDay())) cuenta++;
+    return cuenta;
+  }
+  function mostrarError(msj) {const el=$('mensajeError');el.textContent=msj;el.classList.toggle('d-none',!msj);}
+  function recalcular() {
+    const ini=$('fechaInicio').value,fin=$('fechaFin').value;
+    setText('diasSol',0);setText('diasFest','Por validar');setText('diasVac',0);
+    $('btnEnviar').disabled=true;mostrarError('');
+    if(!ini || !fin) return;
+    if(fin<ini){mostrarError('La fecha final debe ser igual o posterior a la inicial.');return;}
+    if(ini.slice(0,4)!==fin.slice(0,4)){mostrarError('Selecciona fechas dentro del mismo año.');return;}
+    const dias=contarLaborables(ini,fin);setText('diasSol',dias);setText('diasVac',dias);
+    if(dias<1 || dias>30){mostrarError('Selecciona entre 1 y 30 días hábiles.');return;}
+    if(diasDisponibles===null){mostrarError('No hay saldo confirmado en SQL Server.');return;}
+    if(dias>diasDisponibles){mostrarError(`Solo hay ${diasDisponibles} días disponibles.`);return;}
+    if(!enviando) $('btnEnviar').disabled=false;
+  }
+  $('fechaInicio').addEventListener('change',()=>{ $('fechaFin').min=$('fechaInicio').value;recalcular();});
+  $('fechaFin').addEventListener('change',recalcular);
+  $('modalVacaciones').addEventListener('show.bs.modal',()=>{
+    $('fechaInicio').value='';$('fechaFin').value='';$('fechaFin').min='';$('comentarios').value='';
+    setText('modalSaldo',diasDisponibles===null?'Sin datos':`${diasDisponibles} días`);
+    recalcular();
+  });
+  $('btnEnviar').addEventListener('click',async()=>{
+    if(enviando)return;
+    recalcular();if($('btnEnviar').disabled)return;
+    const inicio=$('fechaInicio').value,fin=$('fechaFin').value,comentarios=$('comentarios').value.trim();
+    enviando=true;$('btnEnviar').disabled=true;mostrarError('Enviando solicitud...');
+    try{
+      const respuesta=await obtener('/api/vacaciones/solicitudes',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({inicio,fin,comentarios})
+      });
+      // El backend confirmó la inserción; si falla la recarga NO se vuelve a enviar.
+      mostrarError('');
+      bootstrap.Modal.getInstance($('modalVacaciones'))?.hide();
+      aviso(`Solicitud #${respuesta.idSolicitud} registrada como Pendiente.`, 'success');
+      try{await actualizarVacaciones();}catch(error){aviso(`Solicitud #${respuesta.idSolicitud} registrada. No se pudo actualizar el historial: ${error.message}`,'warning');}
+    }catch(error){mostrarError(error.message);console.error('POST vacaciones:',error);}
+    finally{enviando=false;recalcular();}
+  });
+  actualizarVacaciones().catch(err=>{
+    console.error('Prestaciones SQL:',err);aviso(`No se pudieron cargar vacaciones: ${err.message}`,'warning');
+    dibujarSaldo(null);dibujarHistorial([]);$('btnSolicitar').disabled=true;
+  });
+})();

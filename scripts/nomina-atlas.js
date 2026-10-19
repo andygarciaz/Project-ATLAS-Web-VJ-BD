@@ -1,0 +1,17 @@
+(() => {
+ const $=id=>document.getElementById(id),money=x=>Number(x).toLocaleString('es-MX',{style:'currency',currency:'MXN'});
+ const mk=(tag,txt,cls)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=String(txt);return e};
+ const summary=document.querySelectorAll('.card-stat .stat-value');summary.forEach(x=>x.textContent='Sin registro');
+ for(const id of ['tab-resumen','tab-historial','tab-deducciones'])$(id)?.replaceChildren(mk('div','Consultando nómina en SQL Server...','panel p-4 text-secondary'));
+ async function fetchApi(path){const r=await fetch(path,{credentials:'same-origin',cache:'no-store'});const j=await r.json();if(!r.ok||!j.ok)throw Error(j.mensaje||'Error de consulta');return j}
+ function message(id,msg){$(id)?.replaceChildren(mk('div',msg,'panel p-4 text-secondary'))}
+ function row(values){const tr=mk('tr');values.forEach(v=>tr.append(mk('td',v)));return tr}
+ function table(head,rows){const t=mk('table',undefined,'table table-striped');const th=mk('thead'),hr=mk('tr');head.forEach(x=>hr.append(mk('th',x)));th.append(hr);t.append(th);const tb=mk('tbody');rows.forEach(x=>tb.append(row(x)));t.append(tb);return t}
+ async function detail(id){try{const j=await fetchApi(`/api/nomina/${id}/conceptos`);const p=mk('div',undefined,'panel p-4');p.append(mk('h5',`Recibo #${j.recibo.id} · ${j.recibo.periodo}`));p.append(mk('h6','Percepciones'));p.append(table(['Concepto','Monto'],j.percepciones.map(x=>[x.concepto,money(x.monto)])));p.append(mk('h6','Deducciones'));p.append(table(['Concepto','Monto'],j.deducciones.map(x=>[x.concepto,money(x.monto)])));p.append(mk('p',`Neto: ${j.recibo.neto==null?'No registrado':money(j.recibo.neto)}`));p.append(mk('small','Vista informativa; no es CFDI/XML fiscal verificado.','text-secondary'));$('tab-historial').replaceChildren(p)}catch(e){message('tab-historial',e.message)}}
+ async function init(){try{const {recibos}=await fetchApi('/api/nomina');if(!recibos.length){for(const id of ['tab-resumen','tab-historial','tab-deducciones'])message(id,'No existen recibos de nómina registrados para tu empleado en SQL Server.');return}
+ const r=recibos[0];[r.neto,r.bruto,r.deducciones,r.fechaPago].forEach((v,i)=>{if(summary[i])summary[i].textContent=i===3?(v||'Sin fecha'):(v==null?'No registrado':money(v))});
+ const p=mk('div',undefined,'panel p-4');p.append(mk('h5',`Último recibo: ${r.periodo}`));p.append(table(['Salario bruto','Deducciones','Neto','Fecha de pago'],[[money(r.bruto),money(r.deducciones),r.neto==null?'No registrado':money(r.neto),r.fechaPago]]));$('tab-resumen').replaceChildren(p);
+ const hist=mk('div',undefined,'panel p-4');hist.append(mk('h5','Recibos registrados'));const t=table(['Periodo','Fecha','Neto','Detalle'],[]);const tbody=t.querySelector('tbody');recibos.forEach(x=>{const tr=row([x.periodo,x.fechaPago,x.neto==null?'No registrado':money(x.neto)]);const cell=mk('td');const b=mk('button','Ver conceptos','btn btn-outline-primary btn-sm');b.addEventListener('click',()=>detail(x.id));cell.append(b);tr.append(cell);tbody.append(tr)});hist.append(t);$('tab-historial').replaceChildren(hist);
+ message('tab-deducciones','Selecciona un recibo en Historial para consultar sus deducciones asociadas.');
+ }catch(e){for(const id of ['tab-resumen','tab-historial','tab-deducciones'])message(id,'No fue posible cargar nómina: '+e.message)}}init();
+})();

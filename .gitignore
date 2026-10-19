@@ -1,2 +1,25 @@
-/node_modules
+# Credenciales y configuracion privada
 .env
+.env.*
+!.env.example
+
+# Certificados
+certs/
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Dependencias
+node_modules/
+
+# Configuraciones locales
+.vscode/
+*.log
+
+# Respaldos
+*.bak
+*.tmp
+
+# Unity - archivos innecesarios
+Game/**/*_BurstDebugInformation_DoNotShip/

@@ -44,9 +44,22 @@ function renderFilas(idContenedor, filas) {
     });
 }
 
-renderFilas("datosPersonales", datosPersonales);
-renderFilas("datosDireccion", datosDireccion);
-renderFilas("datosSeguridad", datosSeguridad);
+
+const seccionesPerfil = [
+    "datosPersonales",
+    "datosDireccion",
+    "datosSeguridad"
+];
+
+seccionesPerfil.forEach(id => {
+    const contenedor = document.getElementById(id);
+
+    if (contenedor) {
+        contenedor.textContent =
+            "Información pendiente de vinculación con un empleado.";
+        contenedor.classList.add("text-secondary");
+    }
+});
 
 const tiposDoc = [
         { id: "ine", nombre: "INE / Credencial de elector",

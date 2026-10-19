@@ -6,7 +6,11 @@ const config = {
   password: process.env.DB_PASSWORD,
   server: process.env.DB_SERVER,
   database: process.env.DB_NAME,
-  options: { trustServerCertificate: true, encrypt: false }
+  options: {
+    encrypt: true,
+    trustServerCertificate: false
+  }
+
 };
 
 export const pool = await new sql.ConnectionPool(config).connect();

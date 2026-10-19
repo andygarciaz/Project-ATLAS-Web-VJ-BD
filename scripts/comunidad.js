@@ -1,24 +1,27 @@
-(async function cargarDelServidor() {
+let YO = "Usuario";
+
+async function cargarIdentidadComunidad() {
     try {
-        const lista = await api('/noticias');
+        const respuesta = await fetch("/api/sesion");
 
-        if (Array.isArray(lista) && lista.length) {
-            noticias = lista.map((n, i) => ({
-                tipo: "Noticia",
-                clase: "tag-comunicado",
-                titulo: n.titulo,
-                fecha: fechaBonita(String(n.fecha || "").slice(0, 10)),
-                abierta: i === 0,
-                cuerpo: n.contenido || n.resumen || "",
-            }));
-            renderNoticias();
+        if (!respuesta.ok) {
+            throw new Error("No hay sesión activa");
         }
-    } catch (e) {
-        console.error("No se pudieron cargar las noticias:", e);
-    }
-})();
 
-const YO = "Carlos Mendoza";
+        const datos = await respuesta.json();
+
+        if (!datos.ok || !datos.usuario?.nombre) {
+            throw new Error("No se encontró el usuario");
+        }
+
+        YO = datos.usuario.nombre;
+
+    } catch (error) {
+        console.error("Error al obtener identidad:", error);
+    }
+}
+
+cargarIdentidadComunidad();
 
 const cumpleHoy = { nombre: "Laura Gómez", depto: "Recursos Humanos" };
 
@@ -30,12 +33,24 @@ const proximosCumples = [
 
 const otrasPersonas = ["Ana Ríos", "Jorge Palacios"];
 
-const felicitaciones = [
-    { de: "Ana Ríos",       para: "Laura Gómez",     cuando: "Hoy",         mensaje: "¡Feliz cumpleaños Laura! Que tengas un día increíble." },
-    { de: "Jorge Palacios", para: "Laura Gómez",     cuando: "Hoy",         mensaje: "¡Muchas felicidades! Un gusto trabajar contigo." },
-    { de: "Carlos Mendoza", para: "Roberto Fuentes", cuando: "Hace 3 días", mensaje: "¡Felicidades Roberto! Espero que lo pases muy bien." },
-];
-
+const felicitaciones = [];
+async function cargarFelicitacionesSQL() {
+    try {
+        const res = await fetch('/api/felicitaciones', { credentials:'same-origin', cache:'no-store' });
+        const datos = await res.json();
+        if (!res.ok || !datos.ok) throw new Error(datos.mensaje || `HTTP ${res.status}`);
+        felicitaciones.splice(0,felicitaciones.length,...datos.felicitaciones.map(f=>({
+            de:f.de, para:f.para, cuando:String(f.fecha||'').replace('T',' '), mensaje:f.mensaje
+        })));
+        renderMuro();
+    }catch(e){ console.error('Felicitaciones SQL:',e); mostrarErrorFelicitaciones('No fue posible cargar las felicitaciones almacenadas.'); }
+}
+function mostrarErrorFelicitaciones(mensaje) {
+    let aviso=document.getElementById('atlasErrorFelicitaciones');
+    if(!aviso){ aviso=document.createElement('p'); aviso.id='atlasErrorFelicitaciones'; aviso.className='small text-danger';
+      document.getElementById('muroFelicitaciones').before(aviso); }
+    aviso.textContent=mensaje;
+}
 let noticias = [
     { tipo: "Evento", clase: "tag-evento", titulo: "Evento de integración Q3 — confirma tu asistencia", fecha: "01 Sep 2026", abierta: true,
       cuerpo: "El próximo 13 de septiembre realizaremos nuestro evento trimestral de integración en las instalaciones de Eslabón. Habrá dinámicas, comida y actividades de equipo. Confirma tu participación antes del 5 de septiembre." },
@@ -80,15 +95,22 @@ mensajeFel.addEventListener("input", () => {
     btnEnviarFel.disabled = mensajeFel.value.trim() === "";
 });
 
-btnEnviarFel.addEventListener("click", () => {
-    felicitaciones.unshift({
-        de: YO,
-        para: destinatario.value,
-        cuando: "Ahora",
-        mensaje: mensajeFel.value.trim(),
-    });
-    renderMuro();
-    modalFel.hide();
+btnEnviarFel.addEventListener('click', async () => {
+    const mensaje=mensajeFel.value.trim();
+    if (!mensaje || YO==='Usuario') { mostrarErrorFelicitaciones('Primero carga tu identidad de sesión.');return; }
+    btnEnviarFel.disabled=true;
+    try {
+       const res=await fetch('/api/felicitaciones',{
+          method:'POST',credentials:'same-origin',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({para:destinatario.value,mensaje})
+       });
+       const respuesta=await res.json();
+       if(!res.ok || !respuesta.ok) throw new Error(respuesta.mensaje||`HTTP ${res.status}`);
+       await cargarFelicitacionesSQL();
+       modalFel.hide();
+    }catch(e){mostrarErrorFelicitaciones('No se guardó la felicitación: '+e.message);}
+    finally{btnEnviarFel.disabled=false;}
 });
 
 document.getElementById("btnNuevaFel").addEventListener("click", () => abrirFelicitar());
@@ -139,6 +161,7 @@ function renderMuro() {
     });
 }
 renderMuro();
+cargarFelicitacionesSQL();
 const listaNoticias = document.getElementById("listaNoticias");
 
 function renderNoticias() {

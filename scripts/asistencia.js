@@ -1,222 +1,26 @@
+// ATLAS: kardex de asistencia desde SQL Server (API autenticada).
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const TIPOS = {asistencia:'Asistencia',descanso:'Descanso',festivo:'Festivo',vacaciones:'Vacaciones',incapacidad:'Incapacidad',ausentismo:'Ausentismo',permiso:'Permiso',futuro:'Sin registro'};
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const horas = n => `${Number(n.toFixed(2))} h`;
+const minutos = hora => { if (!hora || !/^\d{2}:\d{2}$/.test(hora)) return null; const [h,m]=hora.split(':').map(Number); return h*60+m; };
+let anioActual=2026, mesActual=9, diasMes=[];
+const selAnio=$('selAnio'),selMes=$('selMes'),btnConsultar=$('btnConsultar');
+const calendarioDias=$('calendarioDias'),detalleDia=$('detalleDia'),tituloCalendario=$('tituloCalendario'),leyenda=$('leyenda');
+const anioHoy=new Date().getFullYear();
+[anioHoy-2,anioHoy-1,anioHoy,anioHoy+1].forEach(a=>selAnio.add(new Option(a,a,false,a===anioActual)));
+MESES.forEach((m,i)=>selMes.add(new Option(m,i,false,i===mesActual)));
+['asistencia','descanso','festivo','vacaciones','incapacidad','ausentismo','permiso','futuro'].forEach(t=>{const span=document.createElement('span');span.innerHTML=`<span class="dot tipo-${t}"></span>${TIPOS[t]}`;leyenda.appendChild(span);});
 
-const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-const ANIOS = [2024, 2025, 2026];
-
-const HOY_DEMO = new Date(2026, 7, 27);   
-const JORNADA_HORAS = 8;                  
-const HORA_ENTRADA = 8 * 60;              
-const TOLERANCIA_MIN = 10;                
-
-const TIPOS = {
-    asistencia: "Asistencia",
-    descanso: "Descanso",
-    festivo: "Festivo",
-    vacaciones: "Vacaciones",
-    incapacidad: "Incapacidad",
-    ausentismo: "Ausentismo",
-    permiso: "Permiso",
-    futuro: "Sin registro",
-};
-
-const vacacionesRangos = [
-    ["2025-12-20", "2026-01-02"],
-    ["2026-03-14", "2026-03-19"],
-    ["2026-07-10", "2026-07-21"],
-];
-
-const ajustes = {
-    "2026-08-06": { entrada: "08:02", salida: "17:05" },
-    "2026-08-05": { salida: "21:03", extra: 4 },
-    "2026-08-12": { entrada: "08:30", salida: "17:30" },  
-    "2026-08-19": { salida: "21:01", extra: 4 },
-};
-
-const pad = (n) => String(n).padStart(2, "0");
-const clave = (anio, mes, dia) => `${anio}-${pad(mes + 1)}-${pad(dia)}`;
-const aMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
-const aHHMM = (min) => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
-const horas = (n) => Number(n.toFixed(1)) + " h";
-
-const enesimoLunes = (anio, mes, n) => {
-    const primero = new Date(anio, mes, 1);
-    const desfase = (8 - primero.getDay()) % 7;
-    return new Date(anio, mes, 1 + desfase + (n - 1) * 7);
-};
-
-const festivosDe = (anio) => new Set([
-    clave(anio, 0, 1),
-    (d => clave(d.getFullYear(), d.getMonth(), d.getDate()))(enesimoLunes(anio, 1, 1)),
-    (d => clave(d.getFullYear(), d.getMonth(), d.getDate()))(enesimoLunes(anio, 2, 3)),
-    clave(anio, 4, 1),
-    clave(anio, 8, 16),
-    (d => clave(d.getFullYear(), d.getMonth(), d.getDate()))(enesimoLunes(anio, 10, 3)),
-    clave(anio, 11, 25),
-]);
-
-const enVacaciones = (k) => vacacionesRangos.some(([ini, fin]) => k >= ini && k <= fin);
-
-function generarMes(anio, mes) {
-    const total = new Date(anio, mes + 1, 0).getDate();
-    const festivos = festivosDe(anio);
-    const dias = [];
-
-    for (let d = 1; d <= total; d++) {
-        const fecha = new Date(anio, mes, d);
-        const k = clave(anio, mes, d);
-        const dow = fecha.getDay();
-        const aj = ajustes[k] || {};
-
-        let tipo;
-        if (fecha > HOY_DEMO) tipo = "futuro";
-        else if (dow === 0 || dow === 6) tipo = "descanso";
-        else if (festivos.has(k)) tipo = "festivo";
-        else if (enVacaciones(k)) tipo = "vacaciones";
-        else tipo = "asistencia";
-
-        if (aj.tipo && tipo !== "futuro") tipo = aj.tipo;
-
-        const dia = { dia: d, dow, tipo };
-
-        if (tipo === "asistencia") {
-            const entradaMin = aj.entrada ? aMin(aj.entrada) : HORA_ENTRADA + ((d * 7) % 12) - 2;
-            const salidaMin = aj.salida ? aMin(aj.salida) : 17 * 60 + ((d * 5) % 13);
-            const tarde = entradaMin - HORA_ENTRADA;
-
-            dia.entrada = aHHMM(entradaMin);
-            dia.salida = aHHMM(salidaMin);
-            dia.trabajadoMin = salidaMin - entradaMin;
-            dia.retardoMin = tarde > TOLERANCIA_MIN ? tarde : 0;
-            dia.extra = aj.extra || 0;
-        }
-        dias.push(dia);
-    }
-    return dias;
-}
-function resumir(dias) {
-    const cuenta = (t) => dias.filter((d) => d.tipo === t).length;
-    const asistencias = cuenta("asistencia");
-    const retardos = dias.filter((d) => d.retardoMin > 0);
-    const horasExtra = dias.reduce((s, d) => s + (d.extra || 0), 0);
-    const horasRetardo = retardos.reduce((s, d) => s + d.retardoMin / 60, 0);
-
-    return {
-        mes: [
-            ["Asistencias", asistencias],
-            ["Descansos", cuenta("descanso")],
-            ["Festivos", cuenta("festivo")],
-            ["Incapacidades", cuenta("incapacidad")],
-        ],
-        eventos: [
-            ["Horas extras", horasExtra],
-            ["Descansos trabajados", 0],
-            ["Retardos", retardos.length],
-            ["Permisos", cuenta("permiso")],
-        ],
-        horas: [
-            ["Asistencia", horas(asistencias * JORNADA_HORAS)],
-            ["Horas extras", horas(horasExtra)],
-            ["Retardos", horas(horasRetardo)],
-            ["Ausentismo", horas(cuenta("ausentismo") * JORNADA_HORAS)],
-        ],
-    };
-}
-
-const selAnio = document.getElementById("selAnio");
-const selMes = document.getElementById("selMes");
-const btnConsultar = document.getElementById("btnConsultar");
-const calendarioDias = document.getElementById("calendarioDias");
-const detalleDia = document.getElementById("detalleDia");
-const tituloCalendario = document.getElementById("tituloCalendario");
-const leyenda = document.getElementById("leyenda");
-
-let anioActual = 2026;
-let mesActual = 7;
-let diasMes = [];
-
-ANIOS.forEach((a) => selAnio.add(new Option(a, a, false, a === anioActual)));
-MESES.forEach((m, i) => selMes.add(new Option(m, i, false, i === mesActual)));
-
-
-["asistencia", "descanso", "festivo", "vacaciones", "incapacidad", "ausentismo", "permiso"].forEach((t) => {
-    const item = document.createElement("span");
-    item.innerHTML = `<span class="dot tipo-${t}"></span>${TIPOS[t]}`;
-    leyenda.appendChild(item);
-});
-
-function renderFilas(idContenedor, filas) {
-    const cont = document.getElementById(idContenedor);
-    cont.innerHTML = "";
-    filas.forEach(([etiqueta, valor]) => {
-        const fila = document.createElement("div");
-        fila.className = "fila-resumen";
-        fila.innerHTML = `<span>${etiqueta}</span><strong class="numero">${valor}</strong>`;
-        cont.appendChild(fila);
-    });
-}
-
-function mostrarDetalle(d) {
-    const fecha = `${d.dia} de ${MESES[mesActual].toLowerCase()} de ${anioActual}`;
-    let linea = "";
-
-    if (d.tipo === "asistencia") {
-        const partes = [
-            `Entrada: ${d.entrada}`,
-            `Salida: ${d.salida}`,
-            `${Math.floor(d.trabajadoMin / 60)} h ${pad(d.trabajadoMin % 60)} min trabajados`,
-        ];
-        if (d.retardoMin) partes.push(`Retardo: ${d.retardoMin} min`);
-        if (d.extra) partes.push(`${d.extra} h extra`);
-        linea = partes.join(" · ");
-    } else if (d.tipo === "futuro") {
-        linea = "Aún no hay registro para este día";
-    }
-
-    detalleDia.innerHTML = `
-        <div><strong>${fecha}</strong> — ${TIPOS[d.tipo]}</div>
-        ${linea ? `<div class="text-secondary">${linea}</div>` : ""}
-    `;
-}
-
-function seleccionarDia(d, boton) {
-    calendarioDias.querySelectorAll(".dia").forEach((b) => b.classList.remove("activo"));
-    boton.classList.add("activo");
-    mostrarDetalle(d);
-}
-
-function renderMes() {
-    diasMes = generarMes(anioActual, mesActual);
-    tituloCalendario.textContent = `${MESES[mesActual]} ${anioActual}`;
-
-    const r = resumir(diasMes);
-    renderFilas("resumenMes", r.mes);
-    renderFilas("totalEventos", r.eventos);
-    renderFilas("totalHoras", r.horas);
-
-    calendarioDias.innerHTML = "";
-    for (let i = 0; i < diasMes[0].dow; i++) {
-        calendarioDias.appendChild(document.createElement("div"));
-    }
-
-    let inicial = null;
-    diasMes.forEach((d) => {
-        const boton = document.createElement("button");
-        boton.type = "button";
-        boton.className = `dia tipo-${d.tipo}`;
-        boton.textContent = d.dia;
-        boton.addEventListener("click", () => seleccionarDia(d, boton));
-        calendarioDias.appendChild(boton);
-
-        if (d.tipo === "asistencia" && (d.dia === 6 || !inicial)) inicial = { d, boton };
-    });
-
-    if (inicial) seleccionarDia(inicial.d, inicial.boton);
-    else detalleDia.innerHTML = `<div class="text-secondary">Selecciona un día para ver el detalle</div>`;
-}
-
-btnConsultar.addEventListener("click", () => {
-    anioActual = Number(selAnio.value);
-    mesActual = Number(selMes.value);
-    renderMes();
-});
-
-renderMes();
+function filas(id,items){const cont=$(id);cont.replaceChildren();items.forEach(([nombre,valor])=>{const div=document.createElement('div');div.className='fila-resumen';const a=document.createElement('span');a.textContent=nombre;const b=document.createElement('strong');b.className='numero';b.textContent=String(valor);div.append(a,b);cont.appendChild(div);});}
+function aviso(mensaje){detalleDia.textContent=mensaje;}
+function clasificar(r){if(r.esAusencia)return 'ausentismo';if(r.esDescanso)return 'descanso';if(r.esRetardo)return 'asistencia';return 'asistencia';}
+function generarMes(registros){const porFecha=new Map(registros.map(r=>[r.fecha,r]));const total=new Date(anioActual,mesActual+1,0).getDate();const dias=[];for(let n=1;n<=total;n++){const fecha=`${anioActual}-${pad(mesActual+1)}-${pad(n)}`;const r=porFecha.get(fecha);const dow=new Date(anioActual,mesActual,n).getDay();const tipo=r?clasificar(r):'futuro';const ini=r?minutos(r.entrada):null,fin=r?minutos(r.salida):null;dias.push({dia:n,dow,tipo,registro:r,entrada:r?.entrada||null,salida:r?.salida||null,trabajadoMin:ini!==null&&fin!==null?Math.max(0,fin-ini):0,extra:Number(r?.horasExtras||0),retardo:!!r?.esRetardo});}return dias;}
+function resumen(dias){const regs=dias.filter(d=>d.registro);const total=t=>dias.filter(d=>d.registro&&d.tipo===t).length;const extras=regs.reduce((s,d)=>s+d.extra,0);const trabajadas=regs.reduce((s,d)=>s+d.trabajadoMin,0)/60;return {mes:[['Asistencias',regs.filter(d=>d.registro.cuentaAsistencia).length],['Descansos registrados',total('descanso')],['Ausencias registradas',total('ausentismo')],['Sin registro',dias.length-regs.length]],eventos:[['Horas extras',horas(extras)],['Retardos',regs.filter(d=>d.retardo).length],['Registros del mes',regs.length]],horas:[['Horas entre entrada y salida',horas(trabajadas)],['Horas extras',horas(extras)]]};}
+function detalle(d){const r=d.registro;detalleDia.replaceChildren();const cab=document.createElement('div');const titulo=document.createElement('strong');titulo.textContent=`${d.dia} de ${MESES[mesActual].toLowerCase()} de ${anioActual}`;cab.append(titulo,document.createTextNode(` — ${r?r.tipo||TIPOS[d.tipo]:'Sin registro'}`));detalleDia.append(cab);const linea=document.createElement('div');linea.className='text-secondary';linea.textContent=r?`Entrada: ${r.entrada||'No registrada'} · Salida: ${r.salida||'No registrada'} · Horas extras: ${horas(d.extra)}${r.esRetardo?' · Retardo':''}`:'No existe un registro de asistencia para esta fecha.';detalleDia.append(linea);}
+function pintar(dias){diasMes=dias;tituloCalendario.textContent=`${MESES[mesActual]} ${anioActual}`;const r=resumen(dias);filas('resumenMes',r.mes);filas('totalEventos',r.eventos);filas('totalHoras',r.horas);calendarioDias.replaceChildren();for(let i=0;i<dias[0].dow;i++)calendarioDias.append(document.createElement('div'));let inicial=null;dias.forEach(d=>{const b=document.createElement('button');b.type='button';b.className=`dia tipo-${d.tipo}`;b.textContent=d.dia;b.title=d.registro?`${d.registro.tipo||'Registro'} (${d.entrada||'--'}–${d.salida||'--'})`:'Sin registro';b.addEventListener('click',()=>{calendarioDias.querySelectorAll('.dia').forEach(x=>x.classList.remove('activo'));b.classList.add('activo');detalle(d);});calendarioDias.append(b);if(d.registro&&!inicial)inicial=b;});if(inicial)inicial.click();else aviso('No existen asistencias registradas para este mes.');}
+function panelVacaciones(){let panel=$('saldoVacacionesAtlas');if(panel)return panel;panel=document.createElement('div');panel.id='saldoVacacionesAtlas';panel.className='panel mt-3';panel.setAttribute('aria-live','polite');const titulo=document.createElement('h6');titulo.className='fw-bold mb-2';titulo.textContent='Saldo de vacaciones';const contenido=document.createElement('div');contenido.id='saldoVacacionesContenido';contenido.textContent='Consultando saldo...';panel.append(titulo,contenido);$('calendarioDias').closest('.panel').insertAdjacentElement('afterend',panel);return panel;}
+async function consultar(){btnConsultar.disabled=true;anioActual=Number(selAnio.value);mesActual=Number(selMes.value);aviso('Consultando asistencias en SQL Server...');const cont=panelVacaciones().querySelector('#saldoVacacionesContenido');cont.textContent='Consultando saldo...';try{const [a,v]=await Promise.all([fetch(`/api/asistencia?anio=${anioActual}&mes=${mesActual+1}`,{credentials:'same-origin',cache:'no-store'}),fetch(`/api/vacaciones/saldo?anio=${anioActual}`,{credentials:'same-origin',cache:'no-store'})]);if(a.status===401||v.status===401)throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');if(!a.ok)throw new Error(`Error HTTP ${a.status} al consultar asistencia`);if(!v.ok)throw new Error(`Error HTTP ${v.status} al consultar vacaciones`);const [datos,saldo]=await Promise.all([a.json(),v.json()]);if(datos.ok!==true||!Array.isArray(datos.registros))throw new Error('Respuesta de asistencia inesperada');if(saldo.ok!==true)throw new Error('Respuesta de vacaciones inesperada');pintar(generarMes(datos.registros));const s=saldo.saldo;cont.textContent=s?`Año ${s.anio}: ${s.asignados} días asignados · ${s.disfrutados} disfrutados · ${s.disponibles} disponibles`:`Sin saldo registrado para ${anioActual}.`;}catch(e){console.error('ATLAS asistencia:',e);calendarioDias.replaceChildren();['resumenMes','totalEventos','totalHoras'].forEach(id=>$(id).replaceChildren());aviso(`No fue posible consultar los datos: ${e.message}`);cont.textContent='No se pudo consultar el saldo.';}finally{btnConsultar.disabled=false;}}
+btnConsultar.addEventListener('click',consultar);
+consultar();
